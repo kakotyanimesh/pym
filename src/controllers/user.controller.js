@@ -3,7 +3,7 @@ import {ApiError} from "../utils/apierrors.js"
 import {User} from "../model/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/apiresponse.js"
-import {upload} from "../middlewares/multer.middlewares.js"
+
 
 
 // access and refresh token
