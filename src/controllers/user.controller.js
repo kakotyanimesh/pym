@@ -3,7 +3,7 @@ import {ApiError} from "../utils/apierrors.js"
 import {User} from "../model/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/apiresponse.js"
-
+import {upload} from "../middlewares/multer.middlewares.js"
 
 const registerUser = asyncHandelers( async (req, res) => {
     //get user details from frontend
@@ -18,7 +18,7 @@ const registerUser = asyncHandelers( async (req, res) => {
 
 
    const {username, password, email, fullName} = req.body
-   console.log("email :", email);
+//    console.log("email :", email);
 
 
    // validation
@@ -30,7 +30,7 @@ const registerUser = asyncHandelers( async (req, res) => {
    }
 
    // userCheck
-   const existedUser = User.findOne({
+   const existedUser = await User.findOne({
     $or: [{username}, {email}]
  })
 
@@ -39,46 +39,55 @@ const registerUser = asyncHandelers( async (req, res) => {
 
  }
 
+ console.log(req.files);
 
 
    // image and avtar cheked
 
-   const avtarLocalPath = req.file?.avtar[0]?.path
-   const coverImageLocalPath = req.file?.coverImage[0]?.path
+   const avtarLocalPath = req.files?.avtar[0]?.path
+//    const coverImageLocalPath = req.files?.coverImage[0]?.path
 
+   let coverImageLocalPath;
+   if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+    coverImageLocalPath = req.files.coverImage[0].path
+   } else {
+    
+   }
+
+   // files not file => first error
    if(!avtarLocalPath){
-    throw new ApiError(400, "avtar file required")
+    throw new ApiError(400, "avtar-local file required")
    }
 
 // upload on clodinary
 
-const avtarCloud = await uploadOnCloudinary(avtarLocalPath)
-const coverImageCloud = await uploadOnCloudinary(coverImageLocalPath)
+const avtar = await uploadOnCloudinary(avtarLocalPath)
+const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
-if (!avtarCloud) {
+if(!avtar){
     throw new ApiError(400, "avtar file is required")
 }
 
 // mongodb user object created
 
-const user = User.create({
+const user = await User.create({
     fullName,
     email,
     password,
-    username: username.tolowercase(),
-    avtar: avtarCloud.url,
-    coverImage: coverImageCloud?.url || ""
+    username: username.toLowerCase(),
+    avtar: avtar.url,
+    coverImage: coverImage?.url || ""
 
 })
 
 const createdUser = await User.findById(user._id).select(
-    "password refreshToken"
+    "-password -refreshToken"
 )
 if (!createdUser) {
-    throw new ApiError(409, "user isnot created")
+    throw new ApiError(500, "user isnot created")
 }
 
-res.status(201).json(
+return res.status(201).json(
     new ApiResponse(200, createdUser, "user created successfully")
 )
 
