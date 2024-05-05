@@ -71,10 +71,8 @@ const registerUser = asyncHandelers( async (req, res) => {
    let coverImageLocalPath;
    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
     coverImageLocalPath = req.files.coverImage[0].path
-   } else {
-    
-   }
-
+   } 
+   
    // files not file => first error
    if(!avtarLocalPath){
     throw new ApiError(400, "avtar-local file required")
@@ -149,11 +147,12 @@ const loginUser = asyncHandelers(async (req, res) => {
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
-    // cookie send
+    // cookie send 
     const options = {
-        httpOnly: true,
-        secure: true
+        httpOnly: true,       // info send through only http server
+        secure: true          // for security 
     }
+
 
     return res
     .status(200)
