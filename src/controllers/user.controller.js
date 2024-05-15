@@ -252,9 +252,136 @@ const refreshAccessToken = asyncHandelers(async (req, res) => {
 })
 
 
+const channelCurrentPassword = asyncHandelers(async(req, res)=> {
+    const {oldPassword, newPassword, confirmPassword} = req.body 
+
+    if(!(newPassword === confirmPassword) ) {
+        throw new ApiError(400, "password didnot matched")
+    }
+    
+    const user = await User.findById(req.user?._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+    if(!isPasswordCorrect) {
+        throw new ApiError(400, "invalid old password")
+
+    }
+    user.password = newPassword
+    await user.save({validateBeforeSave: false}) 
+    // saving password
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "password changed successfully"))
+
+
+
+})
+
+
+const getCurrentUser = asyncHandelers(async (req, res)=>{
+    return res
+    .status(200)
+    .json(200, req.user, "current user fetched successfully")
+})
+
+const updateAccountDetails = asyncHandelers(async(req, res)=> {
+    const {fullName, email } = req.body
+
+    if(!fullName || !email){
+        throw new ApiError(400, "all fields are required")
+
+    }
+
+    const user = User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                fullName: fullName,
+                email: email
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "account details updated successfully"))
+
+
+
+
+})
+
+const updateUserAvtar = asyncHandelers(async(req, res)=> {
+
+    const avtarLocalPath= req.file?.path
+    if (!avtarLocalPath) {
+        throw new ApiError(400, "avtar file is missing")
+
+    }
+
+    const avtar = await uploadOnCloudinary(avtarLocalPath)
+
+    if(!avtar.url){
+        throw new ApiError(400, "error while uploding on avtar")
+
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                avtar: avtar.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "avtar file updated succesfully" ))
+
+
+})
+
+const updateUserCoverImage = asyncHandelers(async(req, res) => {
+    const coverImageLocalFilePath = req.file?.path
+    if(!coverImageLocalFilePath){
+        throw new ApiError(400, "coverimage file is missing")
+    }
+
+    const coverImage = await uploadOnCloudinary(coverImageLocalFilePath)
+
+    if(!coverImage.url){
+        throw new ApiError(400, "error while uplodaing on cloudinary")
+
+    
+    }
+
+    const user = await User.findOneAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                coverImage: coverImage.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "cover image successfully"))
+})
+
 export {
     registerUser,
     loginUser,
     logoutUser,
-    refreshAccessToken
+    refreshAccessToken,
+    channelCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvtar,
+    updateUserCoverImage
 }
