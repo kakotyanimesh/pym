@@ -4,6 +4,7 @@ import {User} from "../model/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/apiresponse.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 
 // access and refresh token
@@ -374,6 +375,145 @@ const updateUserCoverImage = asyncHandelers(async(req, res) => {
     .json(new ApiResponse(200, user, "cover image successfully"))
 })
 
+
+const getUserChannelProfile = asyncHandelers(async (req, res)=>{
+    const {username} = req.params
+
+    if(!username?.trim){
+        throw new ApiError(400, "username is missing")
+
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: username.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            } 
+            // for the count of how many subscriber the channel has
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subsribedTo"
+            }
+            // for how many channels the owner or user is subscribed to
+
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                chennelesSubscribedToCount: {
+                    $size: "$subsribedTo"
+                },
+                isSubcribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+
+
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                chennelesSubscribedToCount: 1,
+                isSubcribed: 1,
+                avtar: 1,
+                coverImage: 1,
+                email: 1
+
+
+            }
+        }
+    ])
+
+    if(!channel?.length){
+        throw new ApiError(404, "channel doesnot exits")
+    }
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "User channel fetched successfully")
+    )
+
+})
+
+
+const getWatchedHistory = asyncHandelers(async(req, res)=> {
+    // on req.user._id => we get a string value of the mongodbId but beacude of using mongoose we are getting the whole id  
+
+   const user = await  User.aggregate([
+    {
+        $match: {
+            _id: new mongoose.Types.ObjectId(req.user._id)
+
+        }
+    },
+    {
+        $lookup: {
+            from: "videos",
+            localField: "watchHistory",
+            foreignField: "_id",
+            as: "watchHistory",
+            pipeline: [
+                {
+                    $lookup: {
+                        from: "users",
+                        localField:"owner",
+                        foreignField: "_id",
+                        as: "owner",
+                        pipeline: [
+                            {
+                                $project: {
+                                    fullName: 1,
+                                    username: 1,
+                                    avtar: 1
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    $addFields: {
+                        owner: {
+                            $first: "$owner"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+   ])
+
+   return res
+   .status(200)
+   .json(
+        new ApiResponse(200, 
+            user[0].watchHistory,
+            "watch history fetched successfully"
+        )
+   )
+})
+
+
+
 export {
     registerUser,
     loginUser,
@@ -383,5 +523,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvtar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchedHistory
 }
