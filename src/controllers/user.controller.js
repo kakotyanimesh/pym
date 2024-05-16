@@ -181,8 +181,8 @@ const logoutUser = asyncHandelers(async (req, res) => {
         req.user._id,
         {
             // mongo operator use
-            $set: {
-                refreshToken: undefined
+            $unset: {
+                refreshToken: 1 
             }
         },
         {
@@ -254,11 +254,8 @@ const refreshAccessToken = asyncHandelers(async (req, res) => {
 
 
 const channelCurrentPassword = asyncHandelers(async(req, res)=> {
-    const {oldPassword, newPassword, confirmPassword} = req.body 
+    const {oldPassword, newPassword} = req.body 
 
-    if(!(newPassword === confirmPassword) ) {
-        throw new ApiError(400, "password didnot matched")
-    }
     
     const user = await User.findById(req.user?._id)
     const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
@@ -283,7 +280,9 @@ const channelCurrentPassword = asyncHandelers(async(req, res)=> {
 const getCurrentUser = asyncHandelers(async (req, res)=>{
     return res
     .status(200)
-    .json(200, req.user, "current user fetched successfully")
+    .json(
+        new ApiResponse(200, req.user, "current user fetched successfully")
+    )
 })
 
 const updateAccountDetails = asyncHandelers(async(req, res)=> {
@@ -294,7 +293,7 @@ const updateAccountDetails = asyncHandelers(async(req, res)=> {
 
     }
 
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
